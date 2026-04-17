@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import uuid
 
 from telegram import Update
@@ -20,6 +21,15 @@ logger = logging.getLogger(__name__)
 
 _config: Config | None = None
 _planner: TravelPlanner | None = None
+
+
+def _strip_markdown(text: str) -> str:
+    """Strip markdown formatting for clean Telegram display."""
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **bold**
+    text = re.sub(r'__(.+?)__', r'\1', text)       # __underline__
+    text = re.sub(r'\*(.+?)\*', r'\1', text)       # *italic*
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)  # # headings
+    return text
 
 
 def set_config(config: Config):
@@ -208,6 +218,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.add_message(trip_id, "assistant", response)
 
     # Split long messages (Telegram 4096 char limit)
+    response = _strip_markdown(response)
     for i in range(0, len(response), 4000):
         chunk = response[i : i + 4000]
         await update.message.reply_text(chunk)
@@ -241,6 +252,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         db.add_message(trip_id, "assistant", response)
 
+        response = _strip_markdown(response)
         for i in range(0, len(response), 4000):
             await update.message.reply_text(response[i : i + 4000])
     except Exception as e:
