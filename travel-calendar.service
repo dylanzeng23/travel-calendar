@@ -1,0 +1,20 @@
+[Unit]
+Description=XiaoLan Travel Calendar Bot
+After=network.target
+
+[Service]
+Type=simple
+User=dylanz
+WorkingDirectory=/home/dylanz/travel-calendar
+ExecStart=/home/dylanz/travel-calendar/venv/bin/python main.py --config config.local.yaml
+Restart=always
+RestartSec=30
+Environment=PYTHONUNBUFFERED=1
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/dylanz/travel-calendar
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+telegram:
+  bot_token: "${XIAOLAN_BOT_TOKEN}"
+  chat_id: "${XIAOLAN_CHAT_ID}"
+
+anthropic:
+  api_key: ""  # Optional: uses ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BASE_URL from env if empty
+  model: "claude-sonnet-4-6"
+
+tavily:
+  api_key: "${TAVILY_API_KEY}"
+
+server:
+  host: "0.0.0.0"
+  port: 8099
+  base_url: "http://34.146.41.55:8099"
+
+data_dir: "./data"
