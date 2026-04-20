@@ -103,12 +103,15 @@ def delete_trip(trip_id: str):
     conn.close()
 
 
-def add_message(trip_id: str, role: str, content: str):
+def add_message(trip_id: str, role: str, content):
+    """Save a message. Content can be a string or a list (for multimodal messages with images)."""
     conn = get_conn()
     now = datetime.now(UTC).isoformat()
+    # Store lists as JSON so we can reconstruct multimodal content
+    content_str = json.dumps(content, ensure_ascii=False) if isinstance(content, list) else content
     conn.execute(
         "INSERT INTO conversations (trip_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-        (trip_id, role, content, now),
+        (trip_id, role, content_str, now),
     )
     conn.commit()
     conn.close()
@@ -121,4 +124,15 @@ def get_conversation(trip_id: str) -> list[dict]:
         (trip_id,),
     ).fetchall()
     conn.close()
-    return [{"role": r["role"], "content": r["content"]} for r in rows]
+    messages = []
+    for r in rows:
+        content = r["content"]
+        # Try to parse JSON — if it's a list, it's multimodal content (image + text)
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, list):
+                content = parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+        messages.append({"role": r["role"], "content": content})
+    return messages

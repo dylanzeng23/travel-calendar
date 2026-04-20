@@ -248,18 +248,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         image_bytes = bytes(await file.download_as_bytearray())
         logger.info(f"Photo downloaded: {len(image_bytes)} bytes")
 
-        # Step 1: Extract all text/info from the image
-        description = _planner.describe_image(image_bytes, "image/jpeg", caption)
-        logger.info(f"Image description: {description[:100]}...")
+        import base64
+        b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
 
-        # Step 2: Store as plain text — NO mention of "photo" or "image"
-        # Claude will treat this as normal user-provided information
-        db.add_message(trip_id, "user",
-            f"Here is my information:\n\n{description}\n\n"
-            f"{'(' + caption + ') ' if caption else ''}"
-            f"Please incorporate all of this into our trip planning.")
+        # Store the ACTUAL image as multimodal content in the DB
+        # This way Claude sees the real photo in every future API call
+        content = [
+            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
+            {"type": "text", "text": caption or "Please look at this and incorporate it into our trip planning."},
+        ]
+        db.add_message(trip_id, "user", content)
 
-        # Step 3: Load full conversation and get Claude's response
+        # Load full conversation (including the image) and get Claude's response
         conversation = db.get_conversation(trip_id)
         response = _planner.respond(conversation)
         logger.info(f"Claude response: {response[:100]}...")
