@@ -25,10 +25,12 @@ _planner: TravelPlanner | None = None
 
 def _strip_markdown(text: str) -> str:
     """Strip markdown formatting for clean Telegram display."""
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **bold**
-    text = re.sub(r'__(.+?)__', r'\1', text)       # __underline__
-    text = re.sub(r'\*(.+?)\*', r'\1', text)       # *italic*
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text, flags=re.DOTALL)  # **bold** (multiline)
+    text = re.sub(r'\*\*\s*\*\*', '', text)          # empty ** **
+    text = re.sub(r'__(.+?)__', r'\1', text)          # __underline__
+    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', text)  # *italic* but not **
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)  # # headings
+    text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)  # --- dividers
     return text
 
 
@@ -251,8 +253,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = _planner.chat_with_image(conversation, image_bytes, "image/jpeg", caption)
         logger.info(f"Claude response for photo: {response[:100]}...")
 
-        # Store in DB for context continuity
-        db.add_message(trip_id, "user", f"[sent a photo]{f': {caption}' if caption else ''}")
+        # Store in DB: summarize what the user shared so future context is coherent
+        # Extract first line of Claude's response as a summary of what was in the photo
+        first_line = response.split('\n')[0][:200]
+        db.add_message(trip_id, "user", f"I shared a photo with you. {f'Caption: {caption}' if caption else ''}")
         db.add_message(trip_id, "assistant", response)
 
         response = _strip_markdown(response)
