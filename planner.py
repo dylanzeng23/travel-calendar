@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_WITH_SEARCH = """You are an expert travel planner assistant. You help users plan detailed trip itineraries.
 
+IMPORTANT: Do NOT use markdown formatting like **bold**, __underline__, or ### headings. This is a Telegram chat — use plain text only. Use emoji for emphasis instead of markdown.
+
 Your job:
 1. Chat naturally with the user about their trip — ask clarifying questions about preferences, must-sees, dietary needs, pace, budget, etc.
 2. Use the web_search tool to look up REAL, current information: opening hours, transport options, restaurant recommendations, ticket prices, travel advisories, weather, etc.
@@ -43,6 +45,8 @@ The user will say something like "generate it" or "make the calendar" when ready
 Respond in the same language the user uses (Chinese or English)."""
 
 SYSTEM_PROMPT_NO_SEARCH = """You are an expert travel planner assistant. You help users plan detailed trip itineraries.
+
+IMPORTANT: Do NOT use markdown formatting like **bold**, __underline__, or ### headings. This is a Telegram chat — use plain text only. Use emoji for emphasis instead of markdown.
 
 Your job:
 1. Chat naturally with the user about their trip — ask clarifying questions about preferences, must-sees, dietary needs, pace, budget, etc.
@@ -217,19 +221,24 @@ class TravelPlanner:
         messages.append({"role": "user", "content": user_message})
         return self._call_claude(messages)
 
-    def chat_with_image(self, conversation: list[dict], image_bytes: bytes, media_type: str, caption: str = "") -> str:
-        """Send an image (with optional caption) in the planning conversation."""
+    def describe_image(self, image_bytes: bytes, media_type: str, caption: str = "") -> str:
+        """Extract a detailed text description from an image."""
         import base64
         b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
-        content = [
-            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": b64}},
-        ]
-        if caption:
-            content.append({"type": "text", "text": caption})
-        else:
-            content.append({"type": "text", "text": "The user sent this image. Describe what you see and incorporate it into the trip planning."})
+        prompt = caption or "Describe everything you see in this image in detail. Extract all text, numbers, dates, names, and any other information visible."
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": b64}},
+                {"type": "text", "text": prompt},
+            ],
+        }]
+        return self._call_claude(messages)
+
+    def chat_with_image_context(self, conversation: list[dict], image_description: str) -> str:
+        """Continue the planning conversation with the image description as context."""
         messages = list(conversation)
-        messages.append({"role": "user", "content": content})
+        messages.append({"role": "user", "content": f"I shared a photo with you. Here's what's in it:\n\n{image_description}\n\nPlease incorporate this into our trip planning."})
         return self._call_claude(messages)
 
     def finalize(self, conversation: list[dict]) -> dict | None:
