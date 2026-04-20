@@ -215,6 +215,10 @@ class TravelPlanner:
                 text_parts.append(block.text)
         return "\n".join(text_parts)
 
+    def respond(self, conversation: list[dict]) -> str:
+        """Get Claude's response for a conversation that already ends with a user message."""
+        return self._call_claude(conversation)
+
     def chat(self, conversation: list[dict], user_message: str) -> str:
         """Send a message in the planning conversation. Returns Claude's response text."""
         messages = list(conversation)

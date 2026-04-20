@@ -248,19 +248,21 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         image_bytes = bytes(await file.download_as_bytearray())
         logger.info(f"Photo downloaded: {len(image_bytes)} bytes")
 
-        # Step 1: Extract text description from the image
-        image_description = _planner.describe_image(image_bytes, "image/jpeg", caption)
-        logger.info(f"Image description: {image_description[:100]}...")
+        # Step 1: Extract all text/info from the image
+        description = _planner.describe_image(image_bytes, "image/jpeg", caption)
+        logger.info(f"Image description: {description[:100]}...")
 
-        # Step 2: Store the description as a persistent text message
-        # This way future conversations have full context of what was in the photo
-        user_msg = f"I shared a photo. Here's what's in it:\n\n{image_description}"
-        db.add_message(trip_id, "user", user_msg)
+        # Step 2: Store as plain text — NO mention of "photo" or "image"
+        # Claude will treat this as normal user-provided information
+        db.add_message(trip_id, "user",
+            f"Here is my information:\n\n{description}\n\n"
+            f"{'(' + caption + ') ' if caption else ''}"
+            f"Please incorporate all of this into our trip planning.")
 
-        # Step 3: Get Claude's planning response using the description + conversation history
+        # Step 3: Load full conversation and get Claude's response
         conversation = db.get_conversation(trip_id)
-        response = _planner.chat(conversation, "Based on the photo I just shared, please incorporate this information into our trip planning.")
-        logger.info(f"Claude planning response: {response[:100]}...")
+        response = _planner.respond(conversation)
+        logger.info(f"Claude response: {response[:100]}...")
 
         db.add_message(trip_id, "assistant", response)
 
