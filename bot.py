@@ -229,6 +229,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
     photo = update.message.photo[-1]  # highest resolution
     caption = update.message.caption or ""
+    logger.info(f"Photo received from {chat_id}, file_id={photo.file_id}, caption={caption!r}")
 
     trip = db.get_active_trip(chat_id)
     if not trip:
@@ -242,22 +243,24 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         file = await photo.get_file()
-        image_bytes = await file.download_as_bytearray()
+        image_bytes = bytes(await file.download_as_bytearray())
+        logger.info(f"Photo downloaded: {len(image_bytes)} bytes")
 
-        # Store placeholder in conversation
-        db.add_message(trip_id, "user", f"[photo]{f': {caption}' if caption else ''}")
-
+        # Get conversation history (text only) then append image as the new message
         conversation = db.get_conversation(trip_id)
-        response = _planner.chat_with_image(conversation, bytes(image_bytes), "image/jpeg", caption)
+        response = _planner.chat_with_image(conversation, image_bytes, "image/jpeg", caption)
+        logger.info(f"Claude response for photo: {response[:100]}...")
 
+        # Store in DB for context continuity
+        db.add_message(trip_id, "user", f"[sent a photo]{f': {caption}' if caption else ''}")
         db.add_message(trip_id, "assistant", response)
 
         response = _strip_markdown(response)
         for i in range(0, len(response), 4000):
             await update.message.reply_text(response[i : i + 4000])
     except Exception as e:
-        logger.error(f"Photo handler error: {e}")
-        await update.message.reply_text(f"Sorry, I couldn't process that image: {e}")
+        logger.error(f"Photo handler error: {e}", exc_info=True)
+        await update.message.reply_text(f"Sorry, error processing image: {e}")
 
 
 def build_bot_app(config: Config) -> Application:
