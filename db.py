@@ -73,8 +73,9 @@ def get_trips_for_chat(chat_id: str) -> list[dict]:
 
 def get_active_trip(chat_id: str) -> dict | None:
     conn = get_conn()
+    # Get most recent trip regardless of status — don't lose context after /generate
     row = conn.execute(
-        "SELECT * FROM trips WHERE chat_id = ? AND status = 'planning' ORDER BY updated_at DESC LIMIT 1",
+        "SELECT * FROM trips WHERE chat_id = ? ORDER BY updated_at DESC LIMIT 1",
         (str(chat_id),),
     ).fetchone()
     conn.close()
